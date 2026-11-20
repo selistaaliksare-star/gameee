@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tembak Kucing</title>
+<style>
+  body { margin: 0; background: #222; color: white; font-family: sans-serif; text-align: center; overflow: hidden; }
+  #bar { background: #111; padding: 12px; font-size: 18px; font-weight: bold; display: flex; justify-content: space-around; }
+  #game { position: relative; width: 100vw; height: calc(100vh - 50px); background: #8ecae6; overflow: hidden; cursor: crosshair; }
+  .cat { position: absolute; font-size: 50px; user-select: none; transform: translate(-50%, -50%); }
+  .fish { position: absolute; font-size: 30px; user-select: none; transform: translate(-50%, -50%); pointer-events: none; }
+  #gun { position: absolute; bottom: 15px; left: 50%; font-size: 45px; transform: translateX(-50%); pointer-events: none; }
+  #startBox { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; }
+  button { padding: 15px 35px; font-size: 20px; font-weight: bold; background: #ffb703; border: none; border-radius: 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <div>Skor: <span id="skor">0</span></div>
+  <div>Waktu: <span id="waktu">30</span></div>
+</div>
+
+<div id="game">
+  <div id="gun">🚀</div>
+  <div id="startBox">
+    <h2>🎯 TEMBAK KUCING LAPAR</h2>
+    <p>Sentuh/klik kucing yang lewat untuk menembaknya!</p>
+    <button id="btnMulai">MULAI SEKARANG</button>
+  </div>
+</div>
+
+<script>
+  var game = document.getElementById("game");
+  var gun = document.getElementById("gun");
+  var skorEl = document.getElementById("skor");
+  var waktuEl = document.getElementById("waktu");
+  var startBox = document.getElementById("startBox");
+  var btnMulai = document.getElementById("btnMulai");
+
+  var skor = 0;
+  var waktu = 30;
+  var aktif = false;
+  var daftarKucing = [];
+  var daftarPeluru = [];
+  var ekspresi = ["😿", "😾", "🙀", "😼", "😹"];
+
+  btnMulai.onclick = function(e) {
+    e.stopPropagation();
+    skor = 0;
+    waktu = 30;
+    aktif = true;
+    skorEl.innerText = skor;
+    waktuEl.innerText = waktu;
+    startBox.style.display = "none";
+
+    for (var i = 0; i < daftarKucing.length; i++) daftarKucing[i].el.remove();
+    for (var j = 0; j < daftarPeluru.length; j++) daftarPeluru[j].el.remove();
+    daftarKucing = [];
+    daftarPeluru = [];
+  };
+
+  setInterval(function() {
+    if (!aktif) return;
+    waktu--;
+    waktuEl.innerText = waktu;
+    if (waktu <= 0) {
+      aktif = false;
+      startBox.style.display = "flex";
+      startBox.querySelector("h2").innerText = "SELESAI! SKOR: " + skor;
+      btnMulai.innerText = "MAIN LAGI";
+    }
+  }, 1000);
+
+  setInterval(function() {
+    if (!aktif) return;
+    var el = document.createElement("div");
+    el.className = "cat";
+    el.innerText = ekspresi[Math.floor(Math.random() * ekspresi.length)];
+    var dariKiri = Math.random() > 0.5;
+    var x = dariKiri ? -30 : game.clientWidth + 30;
+    var y = 60 + Math.random() * (game.clientHeight - 180);
+    var vx = dariKiri ? (3 + Math.random() * 3) : -(3 + Math.random() * 3);
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+    game.appendChild(el);
+    daftarKucing.push({ el: el, x: x, y: y, vx: vx, kena: false });
+  }, 800);
+
+  game.onpointerdown = function(e) {
+    if (!aktif) return;
+    var rect = game.getBoundingClientRect();
+    var tx = e.clientX - rect.left;
+    var ty = e.clientY - rect.top;
+    var gx = game.clientWidth / 2;
+    var gy = game.clientHeight - 35;
+
+    var sudut = Math.atan2(ty - gy, tx - gx);
+    var el = document.createElement("div");
+    el.className = "fish";
+    el.innerText = "🐟";
+    el.style.left = gx + "px";
+    el.style.top = gy + "px";
+    game.appendChild(el);
+
+    daftarPeluru.push({
+      el: el,
+      x: gx,
+      y: gy,
+      vx: Math.cos(sudut) * 12,
+      vy: Math.sin(sudut) * 12
+    });
+  };
+
+  function loop() {
+    if (aktif) {
+      for (var i = daftarPeluru.length - 1; i >= 0; i--) {
+        var p = daftarPeluru[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.el.style.left = p.x + "px";
+        p.el.style.top = p.y + "px";
+        if (p.x < 0 || p.x > game.clientWidth || p.y < 0 || p.y > game.clientHeight) {
+          p.el.remove();
+          daftarPeluru.splice(i, 1);
+        }
+      }
+
+      for (var j = daftarKucing.length - 1; j >= 0; j--) {
+        var k = daftarKucing[j];
+        k.x += k.vx;
+        k.el.style.left = k.x + "px";
+
+        if (!k.kena) {
+          for (var m = daftarPeluru.length - 1; m >= 0; m--) {
+            var pel = daftarPeluru[m];
+            var jarak = Math.hypot(pel.x - k.x, pel.y - k.y);
+            if (jarak < 40) {
+              k.kena = true;
+              k.el.innerText = "😻";
+              skor += 10;
+              skorEl.innerText = skor;
+              pel.el.remove();
+              daftarPeluru.splice(m, 1);
+              (function(obj) {
+                setTimeout(function() { obj.el.remove(); }, 250);
+              })(k);
+              daftarKucing.splice(j, 1);
+              break;
+            }
+          }
+        }
+
+        if (k && (k.x < -60 || k.x > game.clientWidth + 60)) {
+          k.el.remove();
+          daftarKucing.splice(j, 1);
+        }
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+</script>
+</body>
+</html>
